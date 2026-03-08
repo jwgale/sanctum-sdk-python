@@ -1,36 +1,49 @@
 """Example: integrating SanctumAI into an AI agent framework."""
 
-from sanctum_ai import SanctumClient, VaultError, AccessDenied, LeaseExpired
-
+from sanctum_ai import SanctumClient, VaultError, AccessDenied, CredentialNotFound
 
 def run_agent():
     client = SanctumClient(
         "research-agent",
-        # TCP connection instead of Unix socket:
         host="127.0.0.1",
-        port=8200,
-        # Explicit key path (optional):
-        # key_path="~/.sanctum/keys/research-agent.key",
+        port=7600,
     )
 
     try:
         client.connect()
 
-        # Retrieve with a custom TTL (seconds)
-        api_key = client.retrieve("anthropic/api_key", ttl=300)
+        # --- use_credential: proxy an HTTP request ---
+        # The vault injects the API key and makes the request for you.
+        result = client.use_credential("openai/api-key", "http_request", {
+            "method": "POST",
+            "url": "https://api.openai.com/v1/chat/completions",
+            "headers": {"Content-Type": "application/json"},
+            "body": '{"model": "gpt-4", "messages": [{"role": "user", "content": "Summarize quantum computing"}]}',
+            "header_type": "bearer",
+        })
+        print(f"OpenAI response status: {result['status']}")
+
+        # --- use_credential: get an HTTP header for custom requests ---
+        header = client.use_credential("github/token", "http_header", {
+            "header_type": "bearer",
+        })
+        print(f"Got header: {header['header_name']}")
+
+        # --- use_credential: HMAC signing ---
+        signed = client.use_credential("webhook/secret", "sign", {
+            "algorithm": "hmac-sha256",
+            "data": "event-payload",
+        })
+        print(f"Signature: {signed['signature']}")
+
+        # --- retrieve: when you need the raw value ---
+        api_key = client.retrieve("anthropic/api-key", ttl=300)
         print(f"Got key (lease expires in 5 min): {api_key[:8]}...")
-
-        # Get full lease info
-        raw = client.retrieve_raw("openai/api_key", ttl=600)
-        print(f"Lease ID: {raw['lease_id']}, TTL: {raw.get('ttl')}s")
-
-        # Explicitly release when done early
-        client.release_lease(raw["lease_id"])
 
     except AccessDenied as e:
         print(f"Access denied: {e} (suggestion: {e.suggestion})")
-    except LeaseExpired as e:
-        print(f"Lease expired: {e}")
+    except CredentialNotFound as e:
+        print(f"Credential not found: {e}")
     except VaultError as e:
         print(f"Vault error [{e.code}]: {e}")
     finally:

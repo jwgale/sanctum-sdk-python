@@ -8,10 +8,14 @@ with SanctumClient("my-agent") as client:
     credentials = client.list()
     print("Available credentials:", credentials)
 
-    # Retrieve a secret
-    api_key = client.retrieve("openai/api_key")
-    print("Got API key:", api_key[:8] + "...")
-
-    # Use-not-retrieve pattern (credential never leaves the vault)
-    result = client.use("openai/api_key", "http_header")
-    print("Header:", result)
+    # Use-don't-retrieve: make an API call through the vault.
+    # The API key is injected server-side — it never enters this process.
+    response = client.use_credential("openai/api-key", "http_request", {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "headers": {"Content-Type": "application/json"},
+        "body": '{"model": "gpt-4", "messages": [{"role": "user", "content": "Hello"}]}',
+        "header_type": "bearer",
+    })
+    print("Status:", response["status"])
+    print("Body:", response["body"])

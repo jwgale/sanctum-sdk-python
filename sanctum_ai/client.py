@@ -201,18 +201,31 @@ class SanctumClient:
         if lease_id in self._leases:
             self._leases.remove(lease_id)
 
-    def use(
+    def use_credential(
         self,
         path: str,
         operation: str,
         params: Optional[Dict[str, Any]] = None,
     ) -> dict:
-        """Use-not-retrieve: execute an operation using a credential without exposing it.
+        """Use a credential without retrieving it (the proxy pattern).
+
+        The vault executes the operation server-side using the credential.
+        The secret never leaves the vault or enters agent memory.
+
+        Supported operations:
+
+        - ``"http_request"`` — proxy an HTTP request with the credential
+          injected (bearer, api_key, basic, or custom header).
+        - ``"http_header"`` — return the header name/value without making
+          the request.
+        - ``"sign"`` — HMAC-sign data with the credential.
+        - ``"encrypt"`` — encrypt data with the credential.
+        - ``"decrypt"`` — decrypt data with the credential.
 
         Args:
-            path: Credential path (e.g. ``"openai/api_key"``).
-            operation: Operation name (e.g. ``"http_header"``).
-            params: Additional parameters for the operation.
+            path: Credential path (e.g. ``"openai/api-key"``).
+            operation: Operation name (e.g. ``"http_request"``).
+            params: Operation-specific parameters.
 
         Returns:
             Result dict from the vault.
@@ -225,3 +238,6 @@ class SanctumClient:
         if params:
             rpc_params["params"] = params
         return self._call("use", rpc_params)
+
+    # Backwards-compatible alias
+    use = use_credential
