@@ -1,3 +1,5 @@
+> **AI Agents:** See [AGENTS.md](AGENTS.md) for machine-readable integration docs.
+
 # SanctumAI Python SDK
 
 [![PyPI version](https://img.shields.io/pypi/v/sanctum-ai.svg)](https://pypi.org/project/sanctum-ai/)
